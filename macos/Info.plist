@@ -3,18 +3,18 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>V380 Mac 3.14.15</string>
+	<string>V380 Mac 3.14.16</string>
 	<key>CFBundleExecutable</key>
 	<string>launcher</string>
 	<key>CFBundleIdentifier</key>
-	<string>it.daniele.v380mac31415</string>
+	<string>local.v380mac</string>
 	<key>CFBundleName</key>
-	<string>V380 Mac 3.14.15</string>
+	<string>V380 Mac 3.14.16</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.14.15</string>
+	<string>3.14.16</string>
 	<key>CFBundleVersion</key>
-	<string>3.14.15</string>
+	<string>3.14.16</string>
 </dict>
 </plist>

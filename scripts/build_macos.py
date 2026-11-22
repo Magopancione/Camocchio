@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / "dist" / "V380 Mac 3.14.15.app"
+DEST = ROOT / "dist" / "V380 Mac 3.14.16.app"
 if DEST.exists():
     shutil.rmtree(DEST)
 (DEST / "Contents/MacOS").mkdir(parents=True)
