@@ -1,96 +1,38 @@
-# V380 Mac 3.14.16
+# V380 Mac 3.14.23 - Gallery compatta e informazioni anteprime
 
-Applicazione sperimentale per macOS per consultare e scaricare le registrazioni microSD di una telecamera V380 sulla rete locale. Interfaccia web locale, sorgente Python incluso e modificabile.
+Avviare **Avvia_V380_Mac.command** nella radice di QUESTO pacchetto. Chiudere prima la vecchia app con Ferma Live e Esci. Conservare la versione precedente come rollback. Il problema del vecchio avvio .app non e dichiarato risolto.
 
-## Stato della versione
+## Gallery
+- Checkbox a sinistra del titolo, in alto. Titolo su UNA RIGA con carattere ridotto. Su spazi molto stretti compare ellissi; il tooltip conserva il titolo completo.
+- Immagine al centro, indicatori in basso: occhio per Parti significative, simbolo a punti per Uniforme, spia MP4 verde/rossa a destra.
+- Nessun testo Seleziona video, Parti significative o Video salvato ripetuto nella card. Tooltip e pannello contengono i dettagli.
+- Se resta solo la GIF il checkbox e disabilitato: la selezione massiva riguarda gli MP4, non le GIF.
+- Palette colori spostata nella sidebar, fra V380 Mac e Live.
 
-**Release candidata, in collaudo: non dichiarata baseline stabile.** Deriva dalla copia 3.14.13 fornita dall'utente. Il campione audio originale è stato decodificato come IMA ADPCM e confermato all'ascolto dall'utente. La nuova integrazione completa e le operazioni massive richiedono ancora prova sul Mac e sulla telecamera.
+## Pannello al clic sull'immagine
+Mantiene azioni video/GIF e aggiunge dati della GIF: nome, percorso, dimensione effettiva, data di modifica del file, risoluzione, numero fotogrammi e durata misurati con FFprobe, metodo/intervallo/sensibilita/eventi/fallback quando disponibili nel report di generazione. I vecchi file senza report non vengono classificati a intuito. Data modifica NON e necessariamente data di creazione. Se FFprobe manca, rimangono i dati filesystem e il report.
 
-## Funzioni
+Se l'MP4 manca, compaiono Scarica video dalla SD (con conferma) e Riproduci dalla SD. Non viene ricostruito il filmato originale dalla GIF: viene cercata la registrazione originale nella microSD usando il timestamp del nome. Si controllano anche giorni adiacenti per compatibilita con correzione oraria/mezzanotte. Se non e piu presente, si segnala errore senza scaricare un altro filmato a caso. La data/elenco attualmente caricati non vengono sostituiti dalla ricerca.
 
-- Login proprietario TCP 8800 e lettura indice microSD.
-- Registrazioni per data, navigazione giornaliera e timeline.
-- Download HEVC/H.265 e creazione MP4.
-- Audio type 22: blocchi IMA ADPCM integri da 256 byte, conversione in AAC mono 8 kHz.
-- Gallery paginata, GIF su richiesta, intervallo/fotogrammi/durata configurabili.
-- Nome telecamera, player selezionabile e credenziali nel Portachiavi macOS.
-- Download giornata in coda sequenziale; salto degli MP4 già presenti e arresto dopo il file in corso.
-- Selezione multipla MP4 e spostamento nel Cestino locale con conferma; GIF conservate.
+Riproduci dalla SD usa il player progressivo VLC gia presente e non aggiunge un MP4 alla Gallery. Scarica invece salva il video. Audio opzionale come nella 3.14.22. Non eseguire contemporaneamente altre operazioni SD. La nuova risoluzione da GIF va collaudata sulla telecamera reale, soprattutto per registrazioni vecchie/correzione oraria.
 
-## Requisiti
+## Icona
+Icona macOS ICNS generata dall'immagine legno/ottone fornita dall'utente, inclusa nel bundle e PNG nella sidebar. Il launcher .command apre Terminale: l'icona Dock di Terminale non viene cambiata. Il bundle resta non firmato/non notarizzato e non autonomo.
 
-macOS, Python 3.9 o successivo, FFmpeg e FFprobe disponibili sul Mac. Nessun pacchetto Python di terze parti richiesto dal codice attuale. Le operazioni Portachiavi e apertura player dipendono dagli strumenti macOS. FFmpeg non è incluso nel repository.
+## Profili e funzioni conservati
+Uniforme: Default 50 frame, GIF 10s, sorgente 10-60s. Parti significative: Default 30 frame, GIF 7s, dal secondo 1 alla fine effettiva; campo numerico 120 come convenzione fine video. Default contestuale, profili separati. Le GIF esistenti non vengono rigenerate automaticamente. Movimento non equivale a persone.
+Live RTSP e generazione anteprime/audio download invariati. Nessuna nuova funzione Live o riconoscimento persone introdotta qui.
 
-## Avvio dal sorgente
+## Pacchetto pubblico
+Sorgenti completi, risorse, launcher, app in dist, script e test. Nessun IP/Device ID/username personale precompilato, nessun log, filmato o campione privato. Configurazione e Portachiavi sul Mac restano esterni. Richiede Python 3.9+, FFmpeg/FFprobe e VLC. Nessuna licenza assegnata automaticamente; l'immagine icona e quella fornita dall'utente, verificarne i diritti prima della pubblicazione.
 
-```bash
-python3 src/app.py
-```
-
-Il server ascolta su `127.0.0.1` e apre il browser. Configurare IP, Device ID, username e password nelle Impostazioni. I valori di rete precompilati nel sorgente sono quelli dell'ambiente di sviluppo: modificarli per altri dispositivi.
-
-## Ricreare il bundle .app
+## Verifiche locali
+Sintassi Python/JS, regressioni movimento e audio playback con video/audio sintetici, test backend con ricerca SD simulata, metadati di una GIF di prova, download su snapshot senza modificare elenco corrente. Test browser Chromium con API simulate: card compatta, checkbox, palette sidebar, dialog informazioni e azione stream da GIF, nessun errore JavaScript. Non testato su macOS/telecamera fisica. Nessuna garanzia di sincronizzazione audio nuova.
 
 ```bash
 python3 scripts/build_macos.py
-```
-
-Il risultato è `dist/V380 Mac 3.14.16.app`. Il bundle non è firmato né notarizzato. Per usarlo occorrono i requisiti sopra indicati. Nel pacchetto pubblico dist contiene il bundle generato dai sorgenti pubblici.
-
-## Dati e credenziali
-
-- Configurazione: `~/Library/Application Support/V380 Mac 2/config.json`.
-- Password: Portachiavi macOS; non nel repository.
-- Log: `~/Library/Logs/V380Mac2.log`.
-- Video predefiniti: `~/Movies/V380`; GIF nella sottocartella `Thumbnails`.
-- Il repository non contiene filmati, campioni audio, password o chiavi di sessione.
-- Prima di pubblicare controllare comunque IP/identificativi precompilati nel sorgente: possono essere rimossi o sostituiti per un repository pubblico.
-
-## Operazioni massive: perimetro
-
-**Cestina selezionati riguarda soltanto gli MP4 sul Mac. Non cancella la microSD.** Le anteprime restano. Il Cestino va svuotato separatamente per liberare spazio. Le vecchie azioni di eliminazione singola conservano il comportamento preesistente: non confonderle con il nuovo comando Cestina.
-
-Scarica giornata usa la giornata attualmente caricata. Non cambiare data durante la coda. Gli MP4 esistenti, anche senza audio, vengono saltati. Non esiste ancora ripresa di un file parziale.
-
-## Verifiche
-
-```bash
 python3 -m unittest discover -s tests -v
+node tests/test_preview_profiles.cjs
 ```
 
-Controlli statici e di confezionamento non sostituiscono il collaudo sul dispositivo. I test audio eseguiti durante lo sviluppo sono descritti in `docs/RELEASE_NOTES_3.14.16.md`. Sincronizzazione audio/video e stabilità della coda vanno confermate sul Mac.
-
-## Prossime release
-
-Vedere [ROADMAP.md](ROADMAP.md): anteprime concentrate sui movimenti e sulla presenza di persone; anteprima progressiva senza attendere l'intero download. **Non implementate in questa versione.**
-
-## Struttura
-
-- `src/`: sorgente effettivo, HTML/CSS/JavaScript incorporati in `app.py`, file lingue e risorse.
-- `macos/`: metadati e launcher.
-- `scripts/`: ricostruzione bundle.
-- `tests/`: controlli statici.
-- `docs/`: note di rilascio e collaudo.
-- `dist/`: copia dell'app pronta, esclusa da Git.
-
-## Git
-
-```bash
-git init
-git add .
-git commit -m "V380 Mac 3.14.16: audio IMA ADPCM e operazioni massive, in collaudo"
-```
-
-Non viene inizializzato né pubblicato automaticamente alcun repository remoto. Nessuna licenza open source è stata scelta per conto dell'autore: definirla prima della distribuzione pubblica e verificare la provenienza delle risorse incluse.
-
-## Novità interfaccia 3.14.16
-Controlli Gallery nella schermata principale: multipli di 3 o Tutti e filtro per giorno selezionato. Palette in Impostazioni con salvataggio automatico. Dettagli in `docs/RELEASE_NOTES_3.14.16.md`. Il LED conferma l’ultimo accesso riuscito, non una connessione permanente.
-
-## Distribuzione pubblica
-Questo ZIP contiene solo sorgenti e risorse senza identificativi personali precompilati. IP, Device ID e username vanno inseriti nelle Impostazioni. Bundle pubblico incluso in dist/; ricostruibile con lo script.
-
-
-## Bundle pubblico incluso
-Aprire `dist/V380 Mac 3.14.16.app`. Generato dai sorgenti pubblici inclusi, senza IP, Device ID o username personali precompilati. Il Device ID neutro e 0 (da configurare), IP e username sono vuoti. App non firmata e non notarizzata; richiede Python 3 e FFmpeg installati. Non e un eseguibile autonomo con Python incorporato.
-
-Su un Mac gia configurato legge il config.json e il Portachiavi esterni gia esistenti: eventuali valori mostrati non provengono dal pacchetto. Il .gitignore continua a escludere dist dai commit normali; distribuire il bundle come allegato di release se desiderato. Nessun caricamento Git effettuato automaticamente.
+Il test opzionale browser `python3 tests/browser_gallery.py` richiede Playwright e Chromium installati; BROWSER_PATH puo indicare un eseguibile locale. Non necessario per usare l'app.

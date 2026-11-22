@@ -72,7 +72,18 @@
     "close_tab": "Puoi chiudere questa scheda.",
     "previous_day": "Giorno precedente",
     "next_day": "Giorno successivo",
-    "refresh_all": "Aggiorna registrazioni e libreria"
+    "refresh_all": "Aggiorna registrazioni e libreria",
+    "motion_0": "Modalita anteprima",
+    "motion_1": "Uniforme",
+    "motion_2": "Parti significative",
+    "motion_3": "Sensibilita movimento",
+    "motion_4": "Bassa",
+    "motion_5": "Media",
+    "motion_6": "Alta",
+    "motion_7": "Rigenera anteprima",
+    "motion_8": "Analisi in corso...",
+    "sd_play": "Riproduci dalla microSD",
+    "sd_stop": "Ferma riproduzione SD"
   },
   "en": {
     "recordings": "Recordings",
@@ -147,6 +158,17 @@
     "close_tab": "You can close this tab.",
     "previous_day": "Previous day",
     "next_day": "Next day",
-    "refresh_all": "Refresh recordings and gallery"
+    "refresh_all": "Refresh recordings and gallery",
+    "motion_0": "Preview mode",
+    "motion_1": "Uniform",
+    "motion_2": "Significant moments",
+    "motion_3": "Motion sensitivity",
+    "motion_4": "Low",
+    "motion_5": "Medium",
+    "motion_6": "High",
+    "motion_7": "Regenerate preview",
+    "motion_8": "Analyzing...",
+    "sd_play": "Play from microSD",
+    "sd_stop": "Stop SD playback"
   }
 }
