@@ -1,0 +1,4 @@
+#!/bin/bash
+HERE="$(cd "$(dirname "$0")/../Resources" && pwd)"
+mkdir -p "$HOME/Library/Logs"
+exec /usr/bin/python3 "$HERE/app.py" >> "$HOME/Library/Logs/V380Mac2.log" 2>&1
