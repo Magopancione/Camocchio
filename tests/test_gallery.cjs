@@ -1,6 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const path=require('path');let source=fs.readFileSync(path.join(__dirname,'../src/app.py'),'utf8');let code=source.split('<script>')[1].split('</script>')[0];
-let helper=code.slice(code.indexOf('function normalizedPageSize'),code.indexOf('let selected=null;'));
+const path=require('path');let html=require('child_process').execFileSync('python3',['-c',"import ast,sys; m=ast.parse(open(sys.argv[1]).read()); print(next(n.value.value for n in m.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='HTML' for t in n.targets)))",require('path').join(__dirname,'../src/app.py')],{encoding:'utf8'});let code=html.split('<script>')[1].split('</script>')[0];let helper=code.slice(code.indexOf('function normalizedPageSize'),code.indexOf('let selected=null;'));
 let els={gallery_day_only:{checked:false},day:{value:'2026-11-22'},library_page_size:{value:'12'}};
 let ctx={document:{getElementById:id=>els[id]},libraryItems:[{name:'V380_2026-11-22_01-00-00',date:'22-11-2026'},{name:'V380_2026-11-21_01-00-00',date:'21-11-2026'}]};vm.createContext(ctx);vm.runInContext(helper,ctx);
 assert.equal(ctx.normalizedPageSize(8),12);assert.equal(ctx.normalizedPageSize(18),18);assert.equal(ctx.normalizedPageSize('all'),'all');

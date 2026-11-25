@@ -33,11 +33,29 @@ with tempfile.TemporaryDirectory() as td:
   def send_header(self,*a):pass
   def end_headers(self):pass
   def send_error(self,*a):self.codes.append(a[0])
- ctx=SimpleNamespace(JOB_LOCK=threading.Lock(),STATE={'segments':[dict(id=1,type=3,start=1,end=3)]},runtime=lambda:{'host':'fixture','port':8800,'device_id':0,'sd_stream_audio':True},ffmpeg=lambda:'ffmpeg',login=lambda c:(1,1),key=lambda t:b'',clock=lambda *a:None,exact=app.exact,sendpb=lambda *a:None,VIDEO={40},payload=lambda b,k:b)
+ ctx=SimpleNamespace(JOB_LOCK=threading.Lock(),STATE={'segments':[dict(id=1,type=3,start=1,end=3)]},runtime=lambda:{'host':'fixture','port':8800,'device_id':0},cfg=lambda:{'sd_stream_audio':True},ffmpeg=lambda:'ffmpeg',login=lambda c:(1,1),key=lambda t:b'',clock=lambda *a:None,exact=app.exact,sendpb=lambda *a:None,VIDEO={40},payload=lambda b,k:b)
  pb=sd.Playback(ctx)
- with patch.object(sd.Path,'exists',return_value=True),patch.object(sd.subprocess,'run',return_value=SimpleNamespace(returncode=0)):pb.start(0,12345)
+ with patch.object(sd.Path,'exists',return_value=True),patch.object(sd.subprocess,'run',return_value=SimpleNamespace(returncode=0)):pb.start(0,12345,target='VLC')
  h=Handler()
  with patch.object(sd.socket,'create_connection',return_value=Sock()):pb.serve(h,pb.session['token'])
  assert h.codes==[200],(h.codes,pb.status());out=td/'stream.ts';out.write_bytes(h.wfile.getvalue())
  info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=codec_name,sample_rate,channels','-of','json',str(out)]));codecs=[s['codec_name'] for s in info['streams']];assert 'h264' in codecs and 'aac' in codecs,info
+ assert pb.status()['audio_requested'] and pb.status()['audio_blocks']>0 and pb.status()['audio_samples']>0 and pb.status()['audio_peak']>0
  assert not ctx.JOB_LOCK.locked();print('PASS: synthetic camera framing -> H264+AAC progressive HTTP; cleanup',info['streams'])
+
+ # The same synthetic camera supplies an internal HLS playlist without launching an app.
+ import time
+ with patch.object(sd.socket,'create_connection',return_value=Sock()),patch.object(sd.subprocess,'run') as launch:
+  assert pb.start(0,12345,target='internal')=={'target':'internal'}
+  directory=pb.session['directory']
+  limit=time.monotonic()+15
+  while pb.status()['running'] and time.monotonic()<limit:time.sleep(.05)
+  assert not launch.called
+  status=pb.status();assert status.get('playlist'),status
+  playlist=directory/'index.m3u8';assert '#EXT-X-ENDLIST' in playlist.read_text()
+  h=Handler();pb.serve_hls(h,status['playlist']);assert h.codes==[200] and b'#EXTM3U' in h.wfile.getvalue()
+  h=Handler();pb.serve_hls(h,'/sd-hls/invalid/index.m3u8');assert h.codes==[404]
+ meta=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=codec_name','-of','json',str(playlist)]))
+ assert {x['codec_name'] for x in meta['streams']}=={'h264','aac'},meta
+ pb.stop();assert not directory.exists() and not ctx.JOB_LOCK.locked()
+ print('PASS internal HLS with audio, no external launch, token check and cache cleanup')

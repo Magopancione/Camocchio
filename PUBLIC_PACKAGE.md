@@ -1,3 +1,3 @@
-# Pacchetto pubblico 3.14.23
+# Pacchetto sorgenti 3.14.39
 
-App e sorgenti senza parametri personali precompilati. Usare il launcher .command. Configurazione locale esterna non inclusa. Icona fornita dall utente inclusa; verificare diritti prima di distribuire. Leggere README per limiti e test.
+Nessuna .app nativa precompilata inclusa. Usare CREA_APP_MAC.command per creare il bundle sul Mac. Leggere README per prerequisiti e limiti. Nessun dato di connessione privato incluso.
