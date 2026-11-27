@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Camocchio 3.14.39</string>
+	<string>Camocchio 3.14.42</string>
 	<key>CFBundleExecutable</key>
 	<string>Camocchio</string>
 	<key>CFBundleIconFile</key>
@@ -11,13 +11,13 @@
 	<key>CFBundleIdentifier</key>
 	<string>local.v380mac</string>
 	<key>CFBundleName</key>
-	<string>Camocchio 3.14.39</string>
+	<string>Camocchio 3.14.42</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.14.39</string>
+	<string>3.14.42</string>
 	<key>CFBundleVersion</key>
-	<string>3.14.39</string>
+	<string>3.14.42</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>

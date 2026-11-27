@@ -17,7 +17,7 @@ exe=EXE(pyz,a.scripts,[],exclude_binaries=True,name='Camocchio',debug=False,stri
         argv_emulation=False,codesign_identity=None,entitlements_file=None)
 coll=COLLECT(exe,a.binaries,a.datas,strip=False,upx=False,name='Camocchio')
 app=BUNDLE(coll,name='Camocchio.app',icon=str(src/'AppIcon.icns'),bundle_identifier='local.v380mac',
-    info_plist={'CFBundleShortVersionString':'3.14.39','CFBundleVersion':'3.14.39',
+    info_plist={'CFBundleShortVersionString':'3.14.42','CFBundleVersion':'3.14.42',
                 'NSHighResolutionCapable':True,
                 'NSLocalNetworkUsageDescription':'Connessione alla telecamera locale per Live e registrazioni microSD.',
                 'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True,'NSAllowsArbitraryLoadsForMedia':True}})

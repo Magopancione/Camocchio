@@ -1,6 +1,6 @@
 """RTSP -> local rolling HLS (H264/AAC). Separate from stable SD playback."""
-import http.client
 import json
+import os
 import re
 import secrets
 import shutil
@@ -10,6 +10,7 @@ import threading
 import time
 from pathlib import Path
 from urllib.parse import quote
+from native_live import NativeFeed, encoder_inputs
 
 
 def rtsp_url(config, password=''):
@@ -28,13 +29,15 @@ def rtsp_url(config, password=''):
     return 'rtsp://'+auth+host+':'+str(port)+path
 
 
-def hls_command(ffmpeg, input_args, directory, separate_audio=False):
+def hls_command(ffmpeg, input_args, directory, separate_audio=False, *, native_quality=None):
+    vf="fps=20,scale=960:-2" if native_quality!="high" else "fps=20,scale=w=min(iw\\,1920):h=-2"
+    window="22" if native_quality else "5"
     return [ffmpeg,'-nostdin','-hide_banner','-loglevel','info',*input_args,
-            '-map','0:v:0','-map',('1:a:0' if separate_audio else '0:a:0?'),'-vf','fps=20,scale=960:-2',
+            '-map','0:v:0','-map',('1:a:0' if separate_audio else '0:a:0?'),'-vf',vf,
             '-c:v','libx264','-preset','ultrafast','-tune','zerolatency',
             '-pix_fmt','yuv420p','-threads','2','-g','40','-keyint_min','40',
             '-sc_threshold','0','-bf','0','-c:a','aac','-b:a','48k','-ac','1','-ar','24000',
-            '-f','hls','-hls_time','2','-hls_list_size','5','-hls_delete_threshold','2',
+            '-f','hls','-hls_time','2','-hls_list_size',window,'-hls_delete_threshold','2',
             '-hls_flags','delete_segments+temp_file+independent_segments',
             '-hls_segment_filename',str(directory/'segment_%08d.ts'),str(directory/'live.m3u8')]
 
@@ -67,55 +70,114 @@ def inspect_source(ffprobe,config,password):
     return results
 
 
-def local_relay_args(url):
-    # Explicit local adapter only: no discovery, credentials, remote URLs or redirects.
-    m=re.fullmatch(r'http://127\.0\.0\.1:([0-9]{1,5})/live\.flv',url) if isinstance(url,str) else None
-    if not m or not 1<=int(m[1])<=65535:
-        raise ValueError('Usare http://127.0.0.1:PORTA/live.flv del bridge locale')
-    return int(m[1])
-
-
 class LiveAV:
     def __init__(self, app):
         self.app=app;self.lock=threading.RLock();self.control=threading.RLock();self.session=None
 
-    def start(self, relay=None):
-        with self.control:self._start(relay)
+    def start(self):
+        with self.control:self._start()
 
-    def _start(self, relay=None):
-        port=local_relay_args(relay) if relay is not None else None
+    def start_native(self, quality="low"):
+        if quality not in ("low", "high"):
+            raise ValueError("Qualità Live non valida")
+        with self.control:
+            self._stop()
+            if not self.app.JOB_LOCK.acquire(blocking=False):
+                raise RuntimeError('Ferma la riproduzione microSD o attendi il download prima del Live 8800')
+            directory=None
+            try:
+                exe=self.app.ffmpeg()
+                directory=Path(tempfile.mkdtemp(prefix='camocchio_live8800_'))
+                feed=NativeFeed(int(quality=="high"))
+                s=dict(native=feed,proc=None,directory=directory,token=secrets.token_urlsafe(24),audio=True,
+                       error='',warning='',done=False,started=time.monotonic(),quality=quality,first_playlist_ms=None)
+                s['worker']=threading.Thread(target=self._native_worker,args=(s,exe),daemon=True)
+                with self.lock:self.session=s
+                s['worker'].start()
+            except BaseException:
+                with self.lock:self.session=None
+                if directory:shutil.rmtree(directory,ignore_errors=True)
+                self.app.JOB_LOCK.release()
+                raise
+
+    @staticmethod
+    def _terminate(proc):
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate();proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.kill();proc.wait(timeout=3)
+            except ProcessLookupError:pass
+
+    def _native_worker(self,s,exe):
+        feed=s['native']; writers=[]; watchdog=None
+        def fail(message):
+            with self.lock:
+                if not feed.stop_event.is_set() and not s['error']:s['error']=message
+            feed.stop()
+        def start_encoder(fps):
+            nonlocal watchdog
+            read,write=os.pipe()
+            try:
+                with self.lock:
+                    if feed.stop_event.is_set():raise InterruptedError()
+                    s['proc']=proc=subprocess.Popen(hls_command(exe,encoder_inputs(read,fps),s['directory'],True, native_quality=s['quality']),
+                            stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,pass_fds=(read,))
+                with os.fdopen(write,'wb',buffering=0,closefd=False) as audio:
+                    # Transfer ownership to the writer using a duplicate, leaving original cleanup here.
+                    pipe=os.fdopen(os.dup(audio.fileno()),'wb')
+                for index,stream in enumerate((proc.stdin,pipe)):
+                    t=threading.Thread(target=feed.pump,args=(index,stream,fail),daemon=True)
+                    t.start();writers.append(t)
+            finally:
+                os.close(read);os.close(write)
+            def monitor():
+                latest=time.monotonic()
+                previous=None
+                playlist=s['directory']/'live.m3u8'
+                while not feed.stop_event.wait(.5):
+                    if proc.poll() is not None:
+                        fail('Live 8800: conversione FFmpeg terminata');return
+                    try:
+                        modified=playlist.stat().st_mtime_ns
+                        if modified!=previous:latest=time.monotonic();previous=modified
+                        if s['first_playlist_ms'] is None:s['first_playlist_ms']=round((latest-s['started'])*1000)
+                    except OSError:pass
+                    try:over=sum(p.stat().st_size for p in s['directory'].glob('*.ts*'))>64*1024*1024
+                    except OSError:over=False
+                    if over or time.monotonic()-latest>18:
+                        fail('Live 8800: limite buffer o timeout del player');return
+            watchdog=threading.Thread(target=monitor,daemon=True);watchdog.start()
+        try:feed.run(self.app,start_encoder)
+        except Exception as exc:
+            message=str(exc)
+            if not message.startswith('Live 8800:'):
+                message='Live 8800: connessione interrotta o audio/video non disponibile'
+            if not feed.stop_event.is_set():fail(message)
+        finally:
+            feed.stop()
+            try:
+                self._terminate(s['proc'])
+                for writer in writers:writer.join(timeout=1)
+                if watchdog:watchdog.join(timeout=1)
+            finally:
+                shutil.rmtree(s['directory'],ignore_errors=True)
+                self.app.JOB_LOCK.release()
+                with self.lock:s['done']=True
+
+    def _start(self):
         self.stop()
-        config=self.app.cfg();password=self.app.pw() if port is None and config.get('rtsp_auth',False) else ''
-        args,separate=source_args(config,password) if port is None else (['-f','flv','-i','pipe:0'],False)
+        config=self.app.cfg();password=self.app.pw() if config.get('rtsp_auth',False) else ''
+        args,separate=source_args(config,password)
         directory=Path(tempfile.mkdtemp(prefix='v380_live_'))
         try:
             proc=subprocess.Popen(hls_command(self.app.ffmpeg(),args,directory,*([True] if separate else [])),
-                                  stdin=subprocess.PIPE if port is not None else subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+                                  stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
         except Exception:
             shutil.rmtree(directory,ignore_errors=True);raise
         s=dict(proc=proc,directory=directory,token=secrets.token_urlsafe(24),audio=False,error='',warning='',
                stop=threading.Event(),started=time.monotonic())
         with self.lock:self.session=s
-        if port is not None:
-            def feed():
-                conn=http.client.HTTPConnection('127.0.0.1',port,timeout=8)
-                try:
-                    conn.request('GET','/live.flv',headers={'Accept-Encoding':'identity'})
-                    with conn.getresponse() as response:
-                        if response.status!=200 or response.read(3)!=b'FLV':
-                            raise ValueError('Not FLV')
-                        proc.stdin.write(b'FLV')
-                        while not s['stop'].is_set():
-                            block=response.read1(16384)
-                            if not block:break
-                            proc.stdin.write(block);proc.stdin.flush()
-                except (OSError,ValueError,http.client.HTTPException):
-                    if not s['stop'].is_set():s['error']='Bridge locale non disponibile o risposta non FLV'
-                finally:
-                    conn.close()
-                    try:proc.stdin.close()
-                    except OSError:pass
-            threading.Thread(target=feed,daemon=True).start()
         def diagnostic():
             try:
                 output=False
@@ -155,6 +217,12 @@ class LiveAV:
         with self.lock:
             s=self.session
             if not s:return dict(running=False,ready=False,audio=False,error='',warning='',url=None)
+            if 'native' in s:
+                feed=s['native'];ready=(s['directory']/'live.m3u8').is_file() and not feed.stop_event.is_set()
+                return dict(running=not s['done'],ready=ready,audio=ready and feed.audio_blocks>0,error=s['error'],
+                            url='/live-av/'+s['token']+'/live.m3u8' if ready else None,
+                            source='tcp8800',fps_estimated=feed.fps,audio_blocks=feed.audio_blocks,
+                            video_pictures=feed.video_units,quality=s['quality'],first_playlist_ms=s['first_playlist_ms'])
             ready=(s['directory']/'live.m3u8').is_file()
             return dict(running=s['proc'].poll() is None,ready=ready,audio=s['audio'],error=s['error'],warning=s.get('warning',''),
                         url='/live-av/'+s['token']+'/live.m3u8' if ready else None)
@@ -165,6 +233,8 @@ class LiveAV:
     def _stop(self):
         with self.lock:s=self.session;self.session=None
         if not s:return
+        if 'native' in s:
+            s['native'].stop();s['worker'].join(timeout=3);return
         s['stop'].set();proc=s['proc']
         if proc.poll() is None:
             proc.terminate()

@@ -22,7 +22,7 @@ APP="$PWD/dist-native/Camocchio.app"
 .venv-build/bin/python scripts/verify_native.py "$APP"
 # Verify native bundle structure and collected dependencies; never disable Gatekeeper.
 /usr/bin/codesign --verify --deep --strict "$APP"
-/usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$PWD/Camocchio_Mac_3.14.39_NATIVE.zip"
+/usr/bin/ditto -c -k --sequesterRsrc --keepParent "$APP" "$PWD/Camocchio_Mac_3.14.42_NATIVE.zip"
 echo "App creata: $APP"
 echo 'Sposta Camocchio.app in Applicazioni e aprila dal Finder. Il Terminale serve solo per questa compilazione.'
 open -R "$APP"

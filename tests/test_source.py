@@ -13,6 +13,6 @@ class SourceTests(unittest.TestCase):
         self.assertIn("en", data)
     def test_bundle_version(self):
         data = plistlib.loads((ROOT / "macos/Info.plist").read_bytes())
-        self.assertEqual(data["CFBundleShortVersionString"], "3.14.39")
+        self.assertEqual(data["CFBundleShortVersionString"], "3.14.42")
 if __name__ == "__main__":
     unittest.main()
